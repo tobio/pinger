@@ -11,12 +11,14 @@ import (
 )
 
 // Pinger is an HTTP pinger service,
-// it periodically updates the list of hosts to ping.
+// it periodically updates the list of hosts to ping,
+// every 5 minutes by default
 type Pinger struct {
 	httpClient  *http.Client
 	hosts       []Host
 	getter      Getter
 	alertSender AlertSender
+	mu          sync.RWMutex
 }
 
 // NewPinger returns a new Pinger object
@@ -26,11 +28,19 @@ func NewPinger(h *http.Client, g Getter, a AlertSender) *Pinger {
 		log.Fatal(err)
 	}
 
-	return &Pinger{httpClient: h, hosts: hosts, getter: g, alertSender: a}
+	p := Pinger{httpClient: h, hosts: hosts, getter: g, alertSender: a}
+
+	// start periodic hosts list updates
+	go p.update(5 * time.Minute)
+
+	return &p
 }
 
 // ping the hosts and return a map[Host[Response
-func (p Pinger) ping() map[Host]Response {
+func (p *Pinger) ping() map[Host]Response {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	out := make(map[Host]Response)
 
 	var wg sync.WaitGroup
@@ -60,6 +70,25 @@ func (p Pinger) ping() map[Host]Response {
 	wg.Wait()
 
 	return out
+}
+
+// update periodically updates the hosts list
+func (p *Pinger) update(d time.Duration) {
+	for {
+		time.Sleep(d)
+
+		func() {
+			p.mu.Lock()
+			defer p.mu.Unlock()
+
+			hosts, err := p.getter.Hosts()
+			if err != nil {
+				log.Printf("error updating hosts: %s", err.Error())
+			} else {
+				p.hosts = hosts
+			}
+		}()
+	}
 }
 
 // Ping pings the hosts list every time.Duration and sends alerts to the

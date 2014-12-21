@@ -48,6 +48,21 @@ func TestNewPinger(t *testing.T) {
 	}
 }
 
+func TestUpdate(t *testing.T) {
+	var g getter
+	p := Pinger{
+		getter: g,
+		hosts:  []Host{},
+	}
+
+	go p.update(time.Second)
+	time.Sleep(2 * time.Second)
+
+	if !reflect.DeepEqual(p.hosts, testHosts) {
+		t.Fail()
+	}
+}
+
 func ExamplePinger() {
 	// getter and alertSender implement Hosts() and Send() respectively
 	p := NewPinger(http.DefaultClient, getter{}, alertSender{})
