@@ -9,10 +9,10 @@ import (
 // Host is a representation of a host to ping,
 // it contains optional ExpectedBody and ExpectedStatusCode fields
 type Host struct {
-	Name               string
-	Url                string
-	ExpectedBody       string
-	ExpectedStatusCode int
+	Name               string `json:"name"`
+	Url                string `json:"url"`
+	ExpectedBody       string `json:"expected_body"`
+	ExpectedStatusCode int    `json:"expected_statusCode"`
 }
 
 // Error variables
