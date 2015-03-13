@@ -3,8 +3,7 @@
 package pinger
 
 import (
-	"fmt"
-	"log"
+	"github.com/tideland/goas/v3/logger"
 	"net/http"
 	"sync"
 	"time"
@@ -25,7 +24,7 @@ type Pinger struct {
 func NewPinger(h *http.Client, g Getter, a AlertSender) *Pinger {
 	hosts, err := g.Hosts()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalf("%v", err)
 	}
 
 	p := Pinger{httpClient: h, hosts: hosts, getter: g, alertSender: a}
@@ -38,6 +37,7 @@ func NewPinger(h *http.Client, g Getter, a AlertSender) *Pinger {
 
 // ping the hosts and return a map[Host[Response
 func (p *Pinger) ping() map[Host]Response {
+	logger.Infof("Starting pinging")
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -47,24 +47,24 @@ func (p *Pinger) ping() map[Host]Response {
 
 	for _, h := range p.hosts {
 		wg.Add(1)
-		go func() {
+		go func(host Host) {
 			defer wg.Done()
 
-			log.Printf("pinging %s...", h.Name)
+			logger.Debugf("pinging %s...", host.Name)
 
-			status, body, err := h.Ping(p.httpClient)
-			out[h] = Response{
+			status, body, err := host.Ping(p.httpClient)
+			out[host] = Response{
 				Error:      err,
 				StatusCode: status,
 				Body:       body,
 			}
 
 			if err != nil {
-				log.Printf("ERROR %s: %s", h.Name, err.Error())
+				logger.Debugf("ERROR %s: %s", host.Name, err.Error())
 			} else {
-				log.Printf("%s OK", h.Name)
+				logger.Debugf("%s OK", host.Name)
 			}
-		}()
+		}(h)
 	}
 
 	wg.Wait()
@@ -83,7 +83,7 @@ func (p *Pinger) update(d time.Duration) {
 
 			hosts, err := p.getter.Hosts()
 			if err != nil {
-				log.Printf("error updating hosts: %s", err.Error())
+				logger.Debugf("error updating hosts: %s", err.Error())
 			} else {
 				p.hosts = hosts
 			}
@@ -100,8 +100,7 @@ func (p Pinger) Ping(d time.Duration) {
 		resp := p.ping()
 		for h, r := range resp {
 			if r.Error != nil {
-				p.alertSender.Send(fmt.Sprintf("host %s, error %s", h.Name,
-					r.Error))
+				p.alertSender.Send(h.Name, r.Error)
 			}
 		}
 

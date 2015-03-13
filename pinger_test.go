@@ -15,7 +15,7 @@ func (g getter) Hosts() ([]Host, error) {
 
 type alertSender struct{}
 
-func (a alertSender) Send(msg string) error {
+func (a alertSender) Send(host string, err error) error {
 	return nil
 }
 
