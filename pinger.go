@@ -100,7 +100,9 @@ func (p Pinger) Ping(d time.Duration) {
 		resp := p.ping()
 		for h, r := range resp {
 			if r.Error != nil {
-				p.alertSender.Send(h.Name, r.Error)
+				p.alertSender.NotifyFailure(h.Name, r.Error)
+			} else {
+				p.alertSender.NotifySuccess(h.Name)
 			}
 		}
 
